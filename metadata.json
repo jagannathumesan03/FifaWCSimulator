@@ -1,0 +1,6 @@
+{
+  "name": "FIFA 2026 Predictor",
+  "description": "FIFA World Cup 2026 bracket prediction, dynamic simulation, and AI analysis app.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
