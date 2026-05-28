@@ -54,6 +54,9 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
     private val _selectedTeam = MutableStateFlow<Team?>(null)
     val selectedTeam: StateFlow<Team?> = _selectedTeam.asStateFlow()
 
+    private val _selectedGroup = MutableStateFlow("A")
+    val selectedGroup: StateFlow<String> = _selectedGroup.asStateFlow()
+
     // AI insights tracking
     private val _aiMatchInsight = MutableStateFlow<String>("")
     val aiMatchInsight: StateFlow<String> = _aiMatchInsight.asStateFlow()
@@ -103,6 +106,10 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
 
     fun selectTeam(teamId: String) {
         _selectedTeam.value = teamsList.find { it.id == teamId }
+    }
+
+    fun selectGroup(groupCode: String) {
+        _selectedGroup.value = groupCode
     }
 
     // Reset current actions

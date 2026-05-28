@@ -39,9 +39,9 @@ fun GroupsScreen(
 ) {
     val matches by viewModel.matches.collectAsState()
     val groupStandings by viewModel.groupStandings.collectAsState()
+    val selectedGroup by viewModel.selectedGroup.collectAsState()
     
     val groups = listOf("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")
-    var selectedGroup by remember { mutableStateOf("A") }
     
     val activeStandings = groupStandings[selectedGroup] ?: emptyList()
     val activeMatches = matches.filter { it.group == selectedGroup }
@@ -66,7 +66,7 @@ fun GroupsScreen(
                         .clip(RoundedCornerShape(50.dp))
                         .background(if (isSelected) IceWhite else StadiumSurface)
                         .border(1.dp, if (isSelected) IceWhite else StadiumBorder, RoundedCornerShape(50.dp))
-                        .clickable { selectedGroup = grp }
+                        .clickable { viewModel.selectGroup(grp) }
                         .padding(horizontal = 18.dp, vertical = 10.dp)
                         .testTag("group_selector_$grp"),
                     contentAlignment = Alignment.Center
