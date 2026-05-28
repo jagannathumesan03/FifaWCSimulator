@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.PredictionAutoStage
 import com.example.ui.PredictionViewModel
 import com.example.ui.theme.*
 
@@ -41,6 +42,47 @@ fun HomeScreen(
     val champ = viewModel.getMostSelectedChampion()
     val completedCount = matches.count { it.predictedScoreA != null }
     val progress = if (matches.isNotEmpty()) completedCount.toFloat() / matches.size else 0f
+    var showAutoPredictDialog by remember { mutableStateOf(false) }
+
+    if (showAutoPredictDialog) {
+        AlertDialog(
+            onDismissRequest = { showAutoPredictDialog = false },
+            title = {
+                Text(
+                    text = "Auto-predict until",
+                    fontWeight = FontWeight.Black,
+                    color = Color.White
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PredictionAutoStage.entries.forEach { stage ->
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.autoCompleteThroughStage(stage)
+                                showAutoPredictDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = IceWhite),
+                            border = ButtonDefaults.outlinedButtonBorder(true).copy(
+                                brush = Brush.linearGradient(listOf(StadiumBorder, StadiumBorder.copy(alpha = 0.5f)))
+                            ),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text(stage.label, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showAutoPredictDialog = false }) {
+                    Text("Cancel", color = MutedSlate, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = StadiumSurface
+        )
+    }
 
     LazyColumn(
         modifier = modifier
@@ -347,7 +389,7 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Button(
-                    onClick = { viewModel.autoCompleteAllRemaining() },
+                    onClick = { showAutoPredictDialog = true },
                     colors = ButtonDefaults.buttonColors(containerColor = StadiumBorder),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.weight(1.5f)

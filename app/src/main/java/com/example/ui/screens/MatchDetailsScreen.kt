@@ -90,6 +90,7 @@ fun MatchDetailsScreen(
                             viewModel.predictMatch(match.id, scoreAState, scoreBState, finalSelectedWinner)
                             onBack()
                         },
+                        enabled = teamA != null && teamB != null,
                         colors = ButtonDefaults.buttonColors(containerColor = PitchGreen),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier

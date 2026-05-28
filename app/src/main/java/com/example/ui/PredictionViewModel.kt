@@ -12,6 +12,15 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+enum class PredictionAutoStage(val label: String, val stageKeys: List<String>) {
+    GROUPS("Complete group stages", listOf("GROUP")),
+    R32("Round of 32", listOf("GROUP", "R32")),
+    R16("Round of 16", listOf("GROUP", "R32", "R16")),
+    QF("Quarterfinals", listOf("GROUP", "R32", "R16", "QF")),
+    SF("Semifinals", listOf("GROUP", "R32", "R16", "QF", "SF")),
+    FINAL("Final + 3rd place", listOf("GROUP", "R32", "R16", "QF", "SF", "THIRD", "FINAL"))
+}
+
 class PredictionViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = TournamentDatabase.getDatabase(application)
@@ -180,20 +189,44 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun autoCompleteAllRemaining() {
+        autoCompleteThroughStage(PredictionAutoStage.FINAL)
+    }
+
+    fun autoCompleteThroughStage(targetStage: PredictionAutoStage) {
         viewModelScope.launch {
-            val allMatches = matches.value
-            for (m in allMatches) {
-                if (m.predictedScoreA == null && m.teamAId != null && m.teamBId != null && m.teamAId != "TBD" && !m.teamAId.startsWith("TBD_") && m.teamBId != "TBD" && !m.teamBId.startsWith("TBD_")) {
-                    val (scoreA, scoreB) = repository.simulateScoresForMatch(m.teamAId, m.teamBId)
-                    val winner = when {
-                        scoreA > scoreB -> m.teamAId
-                        scoreB > scoreA -> m.teamBId
-                        else -> if (m.isKnockout) m.teamAId else "DRAW"
-                    }
-                    repository.savePrediction(m.id, scoreA, scoreB, winner, true)
-                }
+            for (stageKey in targetStage.stageKeys) {
+                val currentMatches = repository.getFullMatchesSnapshot()
+                val stageMatches = currentMatches.filter { it.stage == stageKey }
+                autoCompleteMatches(stageMatches)
             }
         }
+    }
+
+    private suspend fun autoCompleteMatches(matchesToComplete: List<Match>) {
+        for (m in matchesToComplete) {
+            val teamAId = m.teamAId
+            val teamBId = m.teamBId
+            if (
+                m.predictedScoreA == null &&
+                isKnownTeam(teamAId) &&
+                isKnownTeam(teamBId)
+            ) {
+                val (scoreA, scoreB) = repository.simulateScoresForMatch(teamAId!!, teamBId!!)
+                val winner = when {
+                    scoreA > scoreB -> teamAId
+                    scoreB > scoreA -> teamBId
+                    else -> if (m.isKnockout) teamAId else "DRAW"
+                }
+                repository.savePrediction(m.id, scoreA, scoreB, winner, true)
+            }
+        }
+    }
+
+    private fun isKnownTeam(teamId: String?): Boolean {
+        return teamId != null &&
+            teamId != "TBD" &&
+            !teamId.startsWith("TBD_") &&
+            teamsList.any { it.id == teamId }
     }
 
     // Dynamic stats calculators for dashboard visualizers
@@ -261,8 +294,13 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
         }
         viewModelScope.launch {
             _isGeneratingMatchInsight.value = true
-            val teamA = teamsList.first { it.id == match.teamAId }
-            val teamB = teamsList.first { it.id == match.teamBId }
+            val teamA = teamsList.find { it.id == match.teamAId }
+            val teamB = teamsList.find { it.id == match.teamBId }
+            if (teamA == null || teamB == null) {
+                _aiMatchInsight.value = "Fixture teams are still pending qualification outcomes."
+                _isGeneratingMatchInsight.value = false
+                return@launch
+            }
 
             val prompt = """
                 Provide a short 3-sentence visual analysis for World Cup 2026 match:

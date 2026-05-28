@@ -252,48 +252,65 @@ class PredictionRepository(
         val knockoutList = mutableListOf<Match>()
 
         // 1. Round of 32 (16 Matches: IDs 73 to 88)
-        // Set fixed mapping of slots
-        val r32SlotPairs = listOf(
-            // Win A vs Best 3rd-1
-            Triple("A", "winner", bestThirds.getOrNull(0) ?: "TBD_3RD_1"),
-            Triple("B", "winner", runnersUp["C"] ?: "TBD_C_2"),
-            Triple("C", "winner", bestThirds.getOrNull(1) ?: "TBD_3RD_2"),
-            Triple("D", "winner", runnersUp["E"] ?: "TBD_E_2"),
-            Triple("E", "winner", bestThirds.getOrNull(2) ?: "TBD_3RD_3"),
-            Triple("F", "winner", runnersUp["G"] ?: "TBD_G_2"),
-            Triple("G", "winner", bestThirds.getOrNull(3) ?: "TBD_3RD_4"),
-            Triple("H", "winner", runnersUp["I"] ?: "TBD_I_2"),
-            Triple("I", "winner", bestThirds.getOrNull(4) ?: "TBD_3RD_5"),
-            Triple("J", "winner", runnersUp["K"] ?: "TBD_K_2"),
-            Triple("K", "winner", bestThirds.getOrNull(5) ?: "TBD_3RD_6"),
-            Triple("L", "winner", runnersUp["A"] ?: "TBD_A_2"),
-            // 3rd place mappings
-            Triple("A", "runner", runnersUp["B"] ?: "TBD_B_2"),
-            Triple("C", "runner", runnersUp["D"] ?: "TBD_D_2"),
-            Triple("E", "runner", runnersUp["F"] ?: "TBD_F_2"),
-            Triple("G", "runner", runnersUp["H"] ?: "TBD_H_2")
+        val thirdPlaceSlotGroups = linkedMapOf(
+            74 to listOf("A", "B", "C", "D", "F"),
+            77 to listOf("C", "D", "F", "G", "H"),
+            79 to listOf("C", "E", "F", "H", "I"),
+            80 to listOf("E", "H", "I", "J", "K"),
+            81 to listOf("B", "E", "F", "I", "J"),
+            82 to listOf("A", "E", "H", "I", "J"),
+            85 to listOf("E", "F", "G", "I", "J"),
+            87 to listOf("D", "E", "I", "J", "L")
+        )
+        val thirdPlaceAssignments = assignThirdPlaceTeams(bestThirds, thirdPlaceSlotGroups)
+
+        fun winner(group: String) = winners[group] ?: "TBD_${group}_1"
+        fun runner(group: String) = runnersUp[group] ?: "TBD_${group}_2"
+        fun thirdPlace(matchId: Int): String {
+            val eligibleGroups = thirdPlaceSlotGroups.getValue(matchId)
+            return thirdPlaceAssignments[matchId] ?: "TBD_3RD_${eligibleGroups.joinToString("")}"
+        }
+
+        data class RoundOf32Slot(
+            val id: Int,
+            val teamAId: String?,
+            val teamBId: String?,
+            val label: String
+        )
+
+        val r32Slots = listOf(
+            RoundOf32Slot(73, runner("A"), runner("B"), "Match 73 - Runner-up Group A vs Runner-up Group B"),
+            RoundOf32Slot(74, winner("E"), thirdPlace(74), "Match 74 - Winner Group E vs 3rd Group A/B/C/D/F"),
+            RoundOf32Slot(75, winner("F"), runner("C"), "Match 75 - Winner Group F vs Runner-up Group C"),
+            RoundOf32Slot(76, winner("C"), runner("F"), "Match 76 - Winner Group C vs Runner-up Group F"),
+            RoundOf32Slot(77, winner("I"), thirdPlace(77), "Match 77 - Winner Group I vs 3rd Group C/D/F/G/H"),
+            RoundOf32Slot(78, runner("E"), runner("I"), "Match 78 - Runner-up Group E vs Runner-up Group I"),
+            RoundOf32Slot(79, winner("A"), thirdPlace(79), "Match 79 - Winner Group A vs 3rd Group C/E/F/H/I"),
+            RoundOf32Slot(80, winner("L"), thirdPlace(80), "Match 80 - Winner Group L vs 3rd Group E/H/I/J/K"),
+            RoundOf32Slot(81, winner("D"), thirdPlace(81), "Match 81 - Winner Group D vs 3rd Group B/E/F/I/J"),
+            RoundOf32Slot(82, winner("G"), thirdPlace(82), "Match 82 - Winner Group G vs 3rd Group A/E/H/I/J"),
+            RoundOf32Slot(83, runner("K"), runner("L"), "Match 83 - Runner-up Group K vs Runner-up Group L"),
+            RoundOf32Slot(84, winner("H"), runner("J"), "Match 84 - Winner Group H vs Runner-up Group J"),
+            RoundOf32Slot(85, winner("B"), thirdPlace(85), "Match 85 - Winner Group B vs 3rd Group E/F/G/I/J"),
+            RoundOf32Slot(86, winner("J"), runner("H"), "Match 86 - Winner Group J vs Runner-up Group H"),
+            RoundOf32Slot(87, winner("K"), thirdPlace(87), "Match 87 - Winner Group K vs 3rd Group D/E/I/J/L"),
+            RoundOf32Slot(88, runner("D"), runner("G"), "Match 88 - Runner-up Group D vs Runner-up Group G")
         )
 
         // Build Round of 32 Matches
         val r32Matches = mutableListOf<Match>()
-        for (i in 0 until 16) {
-            val matchId = 73 + i
-            val pair = r32SlotPairs[i]
-            
-            val teamA = if (pair.second == "winner") winners[pair.first] else runnersUp[pair.first]
-            val teamB = pair.third
-
-            val pred = predictionsMap[matchId]
+        for (slot in r32Slots) {
+            val pred = predictionsMap[slot.id]
             
             r32Matches.add(
                 Match(
-                    id = matchId,
-                    teamAId = teamA,
-                    teamBId = teamB,
+                    id = slot.id,
+                    teamAId = slot.teamAId,
+                    teamBId = slot.teamBId,
                     group = null,
                     isKnockout = true,
                     stage = "R32",
-                    date = "Round of 32 — Game ${i + 1}",
+                    date = slot.label,
                     predictedScoreA = pred?.scoreA,
                     predictedScoreB = pred?.scoreB,
                     predictedWinnerId = pred?.winnerId,
@@ -433,6 +450,48 @@ class PredictionRepository(
         knockoutList.add(finalMatch)
 
         return knockoutList
+    }
+
+    private fun assignThirdPlaceTeams(
+        bestThirds: List<String>,
+        slotGroupsByMatch: Map<Int, List<String>>
+    ): Map<Int, String> {
+        val groupByTeamId = teams.associate { it.id to it.group }
+        val matchIds = slotGroupsByMatch.keys.toList()
+
+        fun search(index: Int, usedTeamIds: Set<String>): Map<Int, String>? {
+            if (index == matchIds.size) return emptyMap()
+
+            val matchId = matchIds[index]
+            val eligibleGroups = slotGroupsByMatch.getValue(matchId)
+            val candidates = bestThirds.filter { teamId ->
+                teamId !in usedTeamIds && groupByTeamId[teamId] in eligibleGroups
+            }
+
+            for (candidate in candidates) {
+                val rest = search(index + 1, usedTeamIds + candidate)
+                if (rest != null) {
+                    return rest + (matchId to candidate)
+                }
+            }
+
+            return null
+        }
+
+        return search(index = 0, usedTeamIds = emptySet()) ?: run {
+            val assignments = mutableMapOf<Int, String>()
+            val usedTeamIds = mutableSetOf<String>()
+            for ((matchId, eligibleGroups) in slotGroupsByMatch) {
+                val candidate = bestThirds.firstOrNull { teamId ->
+                    teamId !in usedTeamIds && groupByTeamId[teamId] in eligibleGroups
+                }
+                if (candidate != null) {
+                    assignments[matchId] = candidate
+                    usedTeamIds.add(candidate)
+                }
+            }
+            assignments
+        }
     }
 
     private fun getLoser(m: Match?): String? {
